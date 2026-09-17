@@ -1,0 +1,422 @@
+[
+  {
+    "id": "ai-explorers",
+    "slug": "ai-explorers",
+    "title": "AI Explorers",
+    "category": "AI & discovery",
+    "age_band": "8-10",
+    "short_description": "Meet AI, spot patterns, and dream up your own helpful invention.",
+    "description": "Meet AI, spot patterns, and dream up your own helpful invention.",
+    "difficulty": "beginner",
+    "is_free": true,
+    "status": "published",
+    "color": "purple",
+    "icon": "Bot",
+    "lessons": [
+      {
+        "id": "ai-explorers-1",
+        "title": "Meet your AI sidekick",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "AI is software that learns patterns from examples. It can suggest a song or help recognise a picture. It does not think or feel like you do."
+            },
+            {
+              "type": "activity",
+              "text": "Look around with a grown-up. Find one thing that might use AI. Explain what examples it could learn from."
+            }
+          ]
+        }
+      },
+      {
+        "id": "ai-explorers-2",
+        "title": "Become a pattern detective",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A pattern is something that repeats. AI uses patterns in its training examples to make a prediction. A prediction can be wrong."
+            },
+            {
+              "type": "activity",
+              "text": "Draw a circle, square, circle, square. What comes next? Make a second pattern and ask someone to predict it."
+            }
+          ]
+        }
+      },
+      {
+        "id": "ai-explorers-3",
+        "title": "Design a helpful invention",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Good inventions start with a problem. AI should help people, and a person should check important answers. Never share private information with a chatbot."
+            },
+            {
+              "type": "activity",
+              "text": "On paper, design a robot that helps with one small chore. Label its input, what it does, and how a grown-up checks it."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "creative-coding",
+    "slug": "creative-coding",
+    "title": "Your First Coding Adventure",
+    "category": "Coding",
+    "age_band": "8-10",
+    "short_description": "Turn simple instructions into something wonderfully your own.",
+    "description": "Turn simple instructions into something wonderfully your own.",
+    "difficulty": "beginner",
+    "is_free": true,
+    "status": "published",
+    "color": "green",
+    "icon": "Code2",
+    "lessons": [
+      {
+        "id": "creative-coding-1",
+        "title": "Think like a coder",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A program is a list of instructions. Order matters: put your socks on before your shoes. A computer needs clear steps."
+            },
+            {
+              "type": "activity",
+              "text": "Write four instructions to draw a house. Ask a grown-up to follow them exactly. Improve any unclear step."
+            }
+          ]
+        }
+      },
+      {
+        "id": "creative-coding-2",
+        "title": "Loops make life easier",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A loop repeats an instruction. Instead of writing clap five times, you can say repeat clap five times."
+            },
+            {
+              "type": "activity",
+              "text": "Create a dance with three moves. Repeat the dance twice. How many moves did you perform altogether?"
+            }
+          ]
+        }
+      },
+      {
+        "id": "creative-coding-3",
+        "title": "Build and debug",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A bug is a mistake in instructions. Debugging means finding it and trying a fix. All programmers debug."
+            },
+            {
+              "type": "activity",
+              "text": "Write instructions to move across a paper grid. Try them with a coin. Find and fix one step that goes wrong."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "digital-art",
+    "slug": "digital-art",
+    "title": "Make Your Imagination Pop",
+    "category": "Digital creativity",
+    "age_band": "5-7",
+    "short_description": "Play with colours, shapes, and stories. Create a character that is all you.",
+    "description": "Play with colours, shapes, and stories. Create a character that is all you.",
+    "difficulty": "beginner",
+    "is_free": true,
+    "status": "published",
+    "color": "orange",
+    "icon": "Palette",
+    "lessons": [
+      {
+        "id": "digital-art-1",
+        "title": "A world of shapes",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Artists combine simple shapes to build pictures. A circle and two triangles can become a friendly cat."
+            },
+            {
+              "type": "activity",
+              "text": "Draw a character using three kinds of shapes. Give it a name."
+            }
+          ]
+        }
+      },
+      {
+        "id": "digital-art-2",
+        "title": "Colours tell a story",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Colours can make a picture feel bright, calm, or exciting. Different people can feel differently about the same colour."
+            },
+            {
+              "type": "activity",
+              "text": "Choose three colours for your character. Explain why you chose each one."
+            }
+          ]
+        }
+      },
+      {
+        "id": "digital-art-3",
+        "title": "Your mini story",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A story has a beginning, something that happens, and an ending. Pictures can tell a story too."
+            },
+            {
+              "type": "activity",
+              "text": "Draw three pictures showing your character helping a friend. Share the story with your grown-up."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "internet-superpowers",
+    "slug": "internet-superpowers",
+    "title": "Internet Superpowers",
+    "category": "Digital safety",
+    "age_band": "8-10",
+    "short_description": "Learn to explore, pause, and make kinder choices online.",
+    "description": "Learn to explore, pause, and make kinder choices online.",
+    "difficulty": "beginner",
+    "is_free": true,
+    "status": "published",
+    "color": "blue",
+    "icon": "ShieldCheck",
+    "lessons": [
+      {
+        "id": "internet-superpowers-1",
+        "title": "Keep your information safe",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Your address, passwords, school details, and private pictures should not be shared online. Ask a trusted grown-up when you are unsure."
+            },
+            {
+              "type": "activity",
+              "text": "Make a pretend profile for an imaginary superhero. Include a nickname, favourite colour, and hobby. Leave out private details."
+            }
+          ]
+        }
+      },
+      {
+        "id": "internet-superpowers-2",
+        "title": "Pause before you click",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Messages and websites are not always what they seem. Surprising prizes and urgent demands are a reason to pause."
+            },
+            {
+              "type": "activity",
+              "text": "With a grown-up, invent a suspicious prize message. Name two clues that mean you should ask for help."
+            }
+          ]
+        }
+      },
+      {
+        "id": "internet-superpowers-3",
+        "title": "Be a kind digital friend",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "There is a real person behind a screen. If something makes you uncomfortable, stop and speak to a trusted adult."
+            },
+            {
+              "type": "activity",
+              "text": "Write a kind response to an imaginary friend whose drawing did not turn out as planned."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "vibe-coding",
+    "slug": "vibe-coding",
+    "title": "Big Ideas, Little Apps",
+    "category": "Coding",
+    "age_band": "11-13",
+    "short_description": "Plan an app, write clear prompts, and learn to check what AI creates.",
+    "description": "Plan an app, write clear prompts, and learn to check what AI creates.",
+    "difficulty": "beginner",
+    "is_free": true,
+    "status": "published",
+    "color": "pink",
+    "icon": "Sparkles",
+    "lessons": [
+      {
+        "id": "vibe-coding-1",
+        "title": "Start with a real problem",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Before you ask AI to write code, describe who your app helps and what one task it should do."
+            },
+            {
+              "type": "activity",
+              "text": "Sketch a homework checklist on paper with a title, input, and list. Explain how someone would use it."
+            }
+          ]
+        }
+      },
+      {
+        "id": "vibe-coding-2",
+        "title": "Write a useful prompt",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A clear prompt describes the goal, constraints, and expected result. AI-generated code may contain mistakes. A grown-up should help choose a suitable tool."
+            },
+            {
+              "type": "activity",
+              "text": "Write a prompt for your checklist: what should happen when someone adds a task? What should happen if it is empty?"
+            }
+          ]
+        }
+      },
+      {
+        "id": "vibe-coding-3",
+        "title": "Test your idea",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Testing means trying expected and unexpected actions. Never put private information or passwords into a coding prompt."
+            },
+            {
+              "type": "activity",
+              "text": "Try your paper app with a friend. Ask them to add an empty task and a very long task. Write down two improvements."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "story-studio",
+    "slug": "story-studio",
+    "title": "Your Digital Story Studio",
+    "category": "Digital creativity",
+    "age_band": "11-13",
+    "short_description": "From a tiny idea to a story worth sharing with your family.",
+    "description": "From a tiny idea to a story worth sharing with your family.",
+    "difficulty": "beginner",
+    "is_free": true,
+    "status": "published",
+    "color": "yellow",
+    "icon": "BookOpen",
+    "lessons": [
+      {
+        "id": "story-studio-1",
+        "title": "Find your story seed",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A memorable story gives its character something to want and a problem to solve."
+            },
+            {
+              "type": "activity",
+              "text": "Invent a character, one goal, and one problem. Write a sentence for each."
+            }
+          ]
+        }
+      },
+      {
+        "id": "story-studio-2",
+        "title": "Make a storyboard",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A storyboard plans a story in pictures. Each frame shows an important moment."
+            },
+            {
+              "type": "activity",
+              "text": "Divide a page into four frames. Sketch your beginning, problem, attempt, and ending."
+            }
+          ]
+        }
+      },
+      {
+        "id": "story-studio-3",
+        "title": "Create and credit",
+        "estimated_minutes": 10,
+        "lesson_type": "activity",
+        "content": {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Creators respect other people\u2019s work. Use your own drawings or material you have permission to use."
+            },
+            {
+              "type": "activity",
+              "text": "Make a title and final frame for your story. Add your creator nickname and credits for any borrowed work."
+            }
+          ]
+        }
+      }
+    ]
+  }
+]
