@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -7,6 +9,7 @@ from app.config import settings
 from app.models import (
     AuditLog,
     Course,
+    CourseReview,
     Enrollment,
     LessonProgress,
     Module,
@@ -15,6 +18,8 @@ from app.models import (
     User,
 )
 from app.repositories import COURSE_FIELDS, LESSON_FIELDS, PROGRESS_FIELDS, Repository, record
+
+REQUIRED_REVIEW_GATES = ("curriculum", "safety", "assets")
 
 
 def now():
@@ -35,6 +40,135 @@ class AcademyService:
                 entity_id=entity.id,
             )
         )
+
+    async def course_content_digest(self, course):
+        modules = list(
+            await self.db.scalars(
+                select(Module).where(Module.course_id == course.id).order_by(Module.position)
+            )
+        )
+        lessons = await self.repo.lessons(course.id, published=False)
+        snapshot = {
+            "course": {
+                key: getattr(course, key)
+                for key in (
+                    "slug",
+                    "title",
+                    "short_description",
+                    "description",
+                    "age_band",
+                    "difficulty",
+                    "category",
+                    "thumbnail_url",
+                    "color",
+                    "icon",
+                    "is_free",
+                )
+            },
+            "modules": [
+                {key: getattr(module, key) for key in ("id", "title", "description", "position")}
+                for module in modules
+            ],
+            "lessons": [
+                {
+                    key: getattr(lesson, key)
+                    for key in (
+                        "id",
+                        "module_id",
+                        "title",
+                        "slug",
+                        "lesson_type",
+                        "content",
+                        "estimated_minutes",
+                        "position",
+                    )
+                }
+                for lesson in lessons
+            ],
+        }
+        canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), default=str)
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    async def course_reviews(self, course_id):
+        course = await self.db.get(Course, course_id)
+        if course is None:
+            raise HTTPException(404, "Course not found")
+        digest = await self.course_content_digest(course)
+        rows = list(
+            await self.db.scalars(
+                select(CourseReview).where(
+                    CourseReview.course_id == course.id, CourseReview.content_digest == digest
+                )
+            )
+        )
+        decisions = {}
+        for gate in REQUIRED_REVIEW_GATES:
+            votes = {r.decision for r in rows if r.review_gate == gate}
+            decisions[gate] = (
+                "rejected" if "rejected" in votes else ("approved" if "approved" in votes else None)
+            )
+        rejected = [gate for gate, decision in decisions.items() if decision == "rejected"]
+        missing = [gate for gate, decision in decisions.items() if decision != "approved"]
+        return {
+            "course_id": course.id,
+            "content_digest": digest,
+            "required_gates": list(REQUIRED_REVIEW_GATES),
+            "decisions": decisions,
+            "missing_gates": missing,
+            "rejected_gates": rejected,
+            "ready_to_publish": not missing and not rejected,
+            "reviews": [
+                {
+                    "review_gate": row.review_gate,
+                    "decision": row.decision,
+                    "reviewer_user_id": row.reviewer_user_id,
+                    "notes": row.notes,
+                    "created_at": row.created_at,
+                }
+                for row in rows
+            ],
+        }
+
+    async def add_course_review(self, user, course_id, data):
+        course = await self.db.scalar(
+            select(Course).where(Course.id == course_id).with_for_update()
+        )
+        if course is None:
+            raise HTTPException(404, "Course not found")
+        if course.status == "published":
+            raise HTTPException(409, "Move the course to draft before recording new reviews")
+        if course.created_by == user.id:
+            raise HTTPException(403, "A course author cannot review their own course")
+        digest = await self.course_content_digest(course)
+        existing = await self.db.scalar(
+            select(CourseReview).where(
+                CourseReview.course_id == course.id,
+                CourseReview.content_digest == digest,
+                CourseReview.review_gate == data.review_gate,
+                CourseReview.reviewer_user_id == user.id,
+            )
+        )
+        if existing:
+            raise HTTPException(409, "This reviewer already recorded a decision for this version")
+        review = CourseReview(
+            course_id=course.id,
+            content_digest=digest,
+            review_gate=data.review_gate,
+            reviewer_user_id=user.id,
+            decision=data.decision,
+            notes=data.notes,
+        )
+        self.db.add(review)
+        await self.db.flush()
+        self.audit(user, f"course.review.{data.decision}", course)
+        return {
+            "review_gate": review.review_gate,
+            "decision": review.decision,
+            "reviewer_user_id": review.reviewer_user_id,
+            "content_digest": review.content_digest,
+            "notes": review.notes,
+            "created_at": review.created_at,
+        }
 
     async def student(self, user, student_id):
         student = await self.repo.linked_student(user.id, student_id)
@@ -121,9 +255,15 @@ class AcademyService:
         )
         by_id = {p.lesson_id: p for p in rows}
         views = [
-            record(by_id[lesson_row.id], PROGRESS_FIELDS)
+            {**record(by_id[lesson_row.id], PROGRESS_FIELDS), "mastery_verified": False}
             if lesson_row.id in by_id
-            else {"lesson_id": lesson_row.id, "status": "not_started", "progress_percent": 0}
+            else {
+                "lesson_id": lesson_row.id,
+                "status": "not_started",
+                "progress_percent": 0,
+                "completion_source": None,
+                "mastery_verified": False,
+            }
             for lesson_row in lessons
         ]
         percent = round(sum(v["progress_percent"] for v in views) / len(views)) if views else 0
@@ -150,6 +290,7 @@ class AcademyService:
             raise HTTPException(409, "Completed lessons cannot be reset through progress updates")
         p.status = data.status
         p.progress_percent = data.progress_percent
+        p.completion_source = "parent_self_reported"
         p.last_seen_at = now()
         if data.status != "not_started" and p.started_at is None:
             p.started_at = now()
@@ -162,10 +303,14 @@ class AcademyService:
         ):
             e.status = "completed"
             e.completed_at = e.completed_at or now()
-        return record(p, PROGRESS_FIELDS)
+        result = record(p, PROGRESS_FIELDS)
+        result["mastery_verified"] = False
+        return result
 
     async def editable_course(self, course_id):
-        course = await self.db.get(Course, course_id)
+        course = await self.db.scalar(
+            select(Course).where(Course.id == course_id).with_for_update()
+        )
         if course is None:
             raise HTTPException(404, "Course not found")
         if course.status == "published":
@@ -173,9 +318,20 @@ class AcademyService:
         return course
 
     async def publish(self, user, course_id):
-        course = await self.db.get(Course, course_id)
+        course = await self.db.scalar(
+            select(Course).where(Course.id == course_id).with_for_update()
+        )
         if course is None:
             raise HTTPException(404, "Course not found")
+        review_status = await self.course_reviews(course_id)
+        if review_status["rejected_gates"]:
+            raise HTTPException(
+                409,
+                "Resolve rejected course reviews by updating the course, then request fresh reviews",
+            )
+        if review_status["missing_gates"]:
+            gates = ", ".join(review_status["missing_gates"])
+            raise HTTPException(409, f"Independent reviews are required for: {gates}")
         modules = list(await self.db.scalars(select(Module).where(Module.course_id == course_id)))
         lessons = await self.repo.lessons(course_id, published=False)
         if (
