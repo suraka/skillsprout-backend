@@ -4,6 +4,8 @@ P = "/api/v1"
 A = {"Authorization": "Bearer parent-a"}
 B = {"Authorization": "Bearer parent-b"}
 ADMIN = {"Authorization": "Bearer admin"}
+REVIEWER = {"Authorization": "Bearer reviewer"}
+REVIEWER_B = {"Authorization": "Bearer reviewer-b"}
 
 
 async def create_course(client, slug="coding", publish=True):
@@ -47,6 +49,13 @@ async def create_course(client, slug="coding", publish=True):
         assert r.status_code == 201, r.text
         lessons.append(r.json())
     if publish:
+        for gate in ("curriculum", "safety", "assets"):
+            r = await client.post(
+                P + f"/admin/courses/{c['id']}/reviews",
+                headers=REVIEWER,
+                json={"review_gate": gate, "decision": "approved", "notes": "Reviewed"},
+            )
+            assert r.status_code == 201, r.text
         r = await client.post(P + f"/admin/courses/{c['id']}/publish", headers=ADMIN)
         assert r.status_code == 200, r.text
     return c, m, lessons
@@ -103,6 +112,11 @@ async def test_full_journey_and_permissions(client):
     assert (
         await client.put(route, headers=A, json={"status": "completed", "progress_percent": 100})
     ).status_code == 200
+    evidence = (
+        await client.put(route, headers=A, json={"status": "completed", "progress_percent": 100})
+    ).json()
+    assert evidence["completion_source"] == "parent_self_reported"
+    assert evidence["mastery_verified"] is False
     assert (
         await client.put(route, headers=A, json={"status": "completed", "progress_percent": 100})
     ).status_code == 200
@@ -135,6 +149,16 @@ async def test_draft_and_cross_course_boundaries(client):
             P + f"/students/{s['id']}/enrollments", headers=A, json={"course_id": c["id"]}
         )
     ).status_code == 404
+    missing = await client.post(P + f"/admin/courses/{c['id']}/publish", headers=ADMIN)
+    assert missing.status_code == 409
+    for gate in ("curriculum", "safety", "assets"):
+        assert (
+            await client.post(
+                P + f"/admin/courses/{c['id']}/reviews",
+                headers=REVIEWER,
+                json={"review_gate": gate, "decision": "approved"},
+            )
+        ).status_code == 201
     await client.post(P + f"/admin/courses/{c['id']}/publish", headers=ADMIN)
     other, _, other_lessons = await create_course(client, slug="other")
     e = (
@@ -222,3 +246,77 @@ async def test_empty_course_cannot_publish_and_learner_limit(client):
             P + "/students", headers=A, json={"first_name": "Overflow", "age_band": "8-10"}
         )
     ).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_publication_reviews_are_independent_immutable_and_content_bound(client):
+    course, module, lessons = await create_course(client, publish=False)
+    review_url = P + f"/admin/courses/{course['id']}/reviews"
+    self_review = await client.post(
+        review_url,
+        headers=ADMIN,
+        json={"review_gate": "curriculum", "decision": "approved"},
+    )
+    assert self_review.status_code == 403
+
+    status = (await client.get(review_url, headers=ADMIN)).json()
+    assert status["ready_to_publish"] is False
+    assert status["missing_gates"] == ["curriculum", "safety", "assets"]
+
+    for gate in ("curriculum", "safety", "assets"):
+        reviewed = await client.post(
+            review_url,
+            headers=REVIEWER,
+            json={"review_gate": gate, "decision": "approved", "notes": "Checked"},
+        )
+        assert reviewed.status_code == 201
+        duplicate = await client.post(
+            review_url,
+            headers=REVIEWER,
+            json={"review_gate": gate, "decision": "approved"},
+        )
+        assert duplicate.status_code == 409
+
+    assert (await client.get(review_url, headers=ADMIN)).json()["ready_to_publish"] is True
+    assert (
+        await client.post(P + f"/admin/courses/{course['id']}/publish", headers=ADMIN)
+    ).status_code == 200
+
+    await client.patch(
+        P + f"/admin/courses/{course['id']}", headers=ADMIN, json={"status": "draft"}
+    )
+    await client.patch(
+        P + f"/admin/lessons/{lessons[0]['id']}",
+        headers=ADMIN,
+        json={"title": "Changed after review"},
+    )
+    stale = (await client.get(review_url, headers=ADMIN)).json()
+    assert stale["ready_to_publish"] is False
+    assert stale["missing_gates"] == ["curriculum", "safety", "assets"]
+    assert (
+        await client.post(P + f"/admin/courses/{course['id']}/publish", headers=ADMIN)
+    ).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_rejected_review_blocks_publication_even_with_another_approval(client):
+    course, _, _ = await create_course(client, publish=False)
+    review_url = P + f"/admin/courses/{course['id']}/reviews"
+    rejected = await client.post(
+        review_url,
+        headers=REVIEWER,
+        json={"review_gate": "safety", "decision": "rejected", "notes": "Needs changes"},
+    )
+    assert rejected.status_code == 201
+    for gate in ("curriculum", "safety", "assets"):
+        approved = await client.post(
+            review_url,
+            headers=REVIEWER_B,
+            json={"review_gate": gate, "decision": "approved"},
+        )
+        assert approved.status_code == 201
+    status = (await client.get(review_url, headers=ADMIN)).json()
+    assert status["rejected_gates"] == ["safety"]
+    assert status["ready_to_publish"] is False
+    blocked = await client.post(P + f"/admin/courses/{course['id']}/publish", headers=ADMIN)
+    assert blocked.status_code == 409

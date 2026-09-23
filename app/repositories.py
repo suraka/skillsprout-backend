@@ -55,4 +55,6 @@ STUDENT_FIELDS = "id first_name preferred_name age_band avatar_key status"
 COURSE_FIELDS = "id slug title short_description description age_band difficulty category color icon status is_free published_at"
 LESSON_FIELDS = "id module_id title slug lesson_type estimated_minutes position status"
 ENROLLMENT_FIELDS = "id student_id course_id status enrolled_at completed_at"
-PROGRESS_FIELDS = "lesson_id status progress_percent started_at completed_at last_seen_at"
+PROGRESS_FIELDS = (
+    "lesson_id status progress_percent completion_source started_at completed_at last_seen_at"
+)

@@ -17,6 +17,7 @@ from app.repositories import (
 from app.schemas import (
     CourseCreate,
     CoursePatch,
+    CourseReviewCreate,
     EnrollmentCreate,
     LessonCreate,
     LessonPatch,
@@ -231,7 +232,7 @@ async def patch_course(
     user: User = Depends(admin_user),
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    c = await db.get(Course, course_id)
+    c = await db.scalar(select(Course).where(Course.id == course_id).with_for_update())
     if c is None:
         raise HTTPException(404, "Course not found")
     for k, v in data.model_dump(exclude_unset=True).items():
@@ -323,3 +324,22 @@ async def publish(
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await AcademyService(db).publish(user, course_id)
+
+
+@router.get("/admin/courses/{course_id}/reviews", tags=["admin"])
+async def course_reviews(
+    course_id: UUID,
+    user: User = Depends(admin_user),
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    return await AcademyService(db).course_reviews(course_id)
+
+
+@router.post("/admin/courses/{course_id}/reviews", status_code=201, tags=["admin"])
+async def add_course_review(
+    course_id: UUID,
+    data: CourseReviewCreate,
+    user: User = Depends(admin_user),
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    return await AcademyService(db).add_course_review(user, course_id, data)

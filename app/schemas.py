@@ -113,3 +113,9 @@ class ProgressUpdate(Input):
         if self.status == "in_progress" and not 1 <= self.progress_percent <= 99:
             raise ValueError("In-progress lessons require 1–99 percent")
         return self
+
+
+class CourseReviewCreate(Input):
+    review_gate: Literal["curriculum", "safety", "assets"]
+    decision: Literal["approved", "rejected"]
+    notes: str = Field(default="", max_length=4000)

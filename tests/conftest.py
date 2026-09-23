@@ -35,6 +35,8 @@ async def client():
         db.add_all(
             [
                 User(firebase_uid="admin", email="admin@example.test", role="admin"),
+                User(firebase_uid="reviewer", email="reviewer@example.test", role="admin"),
+                User(firebase_uid="reviewer-b", email="reviewer-b@example.test", role="admin"),
                 User(
                     firebase_uid="disabled",
                     email="disabled@example.test",
@@ -55,7 +57,7 @@ async def client():
 
     async def identity(request: Request):
         uid = request.headers.get("Authorization", "").removeprefix("Bearer ")
-        if uid not in ("parent-a", "parent-b", "admin", "disabled"):
+        if uid not in ("parent-a", "parent-b", "admin", "reviewer", "reviewer-b", "disabled"):
             raise HTTPException(401, "Invalid test token")
         return {"uid": uid, "email": f"{uid}@example.test", "name": uid}
 

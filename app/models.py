@@ -177,12 +177,35 @@ class LessonProgress(Identity, Base):
     )
     status: Mapped[str] = mapped_column(String(30), default="not_started")
     progress_percent: Mapped[int] = mapped_column(Integer, default=0)
+    # The current API records parent-reported completion. It does not establish mastery.
+    completion_source: Mapped[str] = mapped_column(
+        String(40), default="parent_self_reported", server_default="legacy_self_reported"
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class CourseReview(Identity, Base):
+    __tablename__ = "course_reviews"
+    __table_args__ = (
+        UniqueConstraint("course_id", "content_digest", "review_gate", "reviewer_user_id"),
+        CheckConstraint("review_gate IN ('curriculum','safety','assets')"),
+        CheckConstraint("decision IN ('approved','rejected')"),
+        Index("ix_course_reviews_course_digest", "course_id", "content_digest"),
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), index=True
+    )
+    content_digest: Mapped[str] = mapped_column(String(64))
+    review_gate: Mapped[str] = mapped_column(String(30))
+    reviewer_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    decision: Mapped[str] = mapped_column(String(20))
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AuditLog(Identity, Base):
