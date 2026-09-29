@@ -31,4 +31,4 @@ jobs:
       - run: uv run python -m app.seed
       - run: uv run alembic check
       - run: uv run pytest -q
-      - run: uv run ruff check app tests
+      - run: uv run ruff check app scripts tests
