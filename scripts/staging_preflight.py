@@ -6,11 +6,10 @@ import asyncio
 import json
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.config import Settings
