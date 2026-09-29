@@ -5,10 +5,10 @@ import json
 import os
 import sys
 
-from app.config import Settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.config import Settings
 from app.staging_target import (
     ExpectedStagingTarget,
     StagingValidationError,
