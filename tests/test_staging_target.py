@@ -84,7 +84,7 @@ def test_safe_summary_excludes_database_password():
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?port=5433",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?dsn=production",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?password=query-secret",
-        "postgresql://dbuser:secret-password@staging-db.internal/skillsprout_staging",
+        "mysql+asyncmy://dbuser:secret-password@staging-db.internal/skillsprout_staging",
     ],
 )
 def test_rejects_routing_overrides_and_unsupported_urls(database_url):
