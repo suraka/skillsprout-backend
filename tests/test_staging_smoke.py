@@ -9,6 +9,7 @@ from scripts.staging_smoke import SmokeError, run_smoke
 def smoke_env() -> dict[str, str]:
     return {
         "STAGING_API_ORIGIN": "https://api.staging.skillsprout.example",
+        "STAGING_EXPECTED_API_ORIGIN": "https://api.staging.skillsprout.example",
         "STAGING_FIREBASE_WEB_API_KEY": "public-web-key",
         "STAGING_PARENT_A_EMAIL": "parent-a@example.test",
         "STAGING_PARENT_A_PASSWORD": "parent-a-password-secret",
@@ -76,6 +77,8 @@ def test_revocation_uses_an_in_memory_token_and_reports_no_token(capsys):
                 return httpx.Response(401, json={"detail": "denied"})
             return httpx.Response(200, json={})
         if request.method == "GET":
+            if request.headers.get("Authorization") == "Bearer memory-only-token-2":
+                return httpx.Response(403, json={"detail": "denied"})
             return httpx.Response(200, json={})
         return httpx.Response(403, json={})
 
@@ -113,6 +116,8 @@ def test_expiry_waits_through_session_expiry_before_verifying_denial():
                 return httpx.Response(401, json={"detail": "expired"})
             return httpx.Response(200, json={})
         if request.method == "GET":
+            if request.headers.get("Authorization") == "Bearer memory-only-token-2":
+                return httpx.Response(403, json={"detail": "denied"})
             return httpx.Response(200, json={})
         return httpx.Response(403, json={})
 
@@ -124,3 +129,68 @@ def test_expiry_waits_through_session_expiry_before_verifying_denial():
     assert results["expiry"] == "PASS"
     assert token_calls == 3
     assert waited == [70]
+
+
+def test_requires_expected_api_origin_before_requests():
+    calls = 0
+    env = smoke_env()
+    env.pop("STAGING_EXPECTED_API_ORIGIN")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(SmokeError, match="STAGING_EXPECTED_API_ORIGIN"):
+            run_smoke(env, client)
+
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    ("variable", "value"),
+    [
+        ("STAGING_API_ORIGIN", "http://api.staging.skillsprout.example"),
+        ("STAGING_EXPECTED_API_ORIGIN", "https://api.staging.skillsprout.example/path"),
+    ],
+)
+def test_rejects_malformed_api_origin_before_requests(variable, value):
+    calls = 0
+    env = smoke_env()
+    env[variable] = value
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(SmokeError, match=variable):
+            run_smoke(env, client)
+
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "actual_origin",
+    [
+        "https://other-staging.skillsprout.example",
+        "https://api.skillsprout.example",
+    ],
+)
+def test_rejects_mismatched_or_production_api_origin_before_requests(actual_origin):
+    calls = 0
+    env = smoke_env()
+    env["STAGING_API_ORIGIN"] = actual_origin
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(SmokeError, match="must match"):
+            run_smoke(env, client)
+
+    assert calls == 0
