@@ -1,3 +1,5 @@
+import pytest
+
 from app.config import Settings
 from app.staging_target import ExpectedStagingTarget, validate_staging_target
 
@@ -69,3 +71,24 @@ def test_safe_summary_excludes_database_password():
     assert "database_url" not in summary
     assert summary["database_host"] == "staging-db.internal"
     assert summary["database_name"] == "skillsprout_staging"
+
+
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?host=production.internal",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?%68ost=production.internal",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?sslmode=require&host=production.internal",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?host=staging-db.internal&host=production.internal",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?database=production",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?port=5433",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?dsn=production",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?password=query-secret",
+        "postgresql://dbuser:secret-password@staging-db.internal/skillsprout_staging",
+    ],
+)
+def test_rejects_routing_overrides_and_unsupported_urls(database_url):
+    with pytest.raises(ValueError, match="supported staging PostgreSQL URL") as error:
+        validate_staging_target(settings(database_url=database_url), target())
+    assert "secret-password" not in str(error.value)
+    assert "production.internal" not in str(error.value)
