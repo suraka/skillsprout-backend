@@ -112,6 +112,22 @@ def sign_in(client: httpx.Client, api_key: str, email: str, password: str) -> Fi
     return FirebaseSession(id_token=token, expires_in_seconds=expires_in_seconds)
 
 
+def api_response(
+    client: httpx.Client,
+    origin: str,
+    method: str,
+    path: str,
+    token: str | None = None,
+    payload: dict[str, str] | None = None,
+) -> httpx.Response:
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    try:
+        response = client.request(method, origin + path, headers=headers, json=payload)
+    except httpx.HTTPError:
+        raise SmokeError(f"Staging API request failed for {method} {path}") from None
+    return response
+
+
 def api_request(
     client: httpx.Client,
     origin: str,
@@ -120,12 +136,7 @@ def api_request(
     token: str | None = None,
     payload: dict[str, str] | None = None,
 ) -> int:
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-    try:
-        response = client.request(method, origin + path, headers=headers, json=payload)
-    except httpx.HTTPError:
-        raise SmokeError(f"Staging API request failed for {method} {path}") from None
-    return response.status_code
+    return api_response(client, origin, method, path, token, payload).status_code
 
 
 def require_status(label: str, status: int, expected: set[int]) -> None:
@@ -142,6 +153,8 @@ def verify_revocation(
     session = sign_in(
         client, config.firebase_web_api_key, config.parent_a_email, config.parent_a_password
     )
+    accepted = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
+    require_status("revocation_baseline", accepted, {200})
     input_fn("Revoke sessions for synthetic guardian A, then press Enter to verify denial: ")
     status = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
     require_status("revocation_denial", status, {401, 403})
@@ -155,6 +168,8 @@ def verify_expiry(
     session = sign_in(
         client, config.firebase_web_api_key, config.parent_a_email, config.parent_a_password
     )
+    accepted = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
+    require_status("expiry_baseline", accepted, {200})
     sleeper(session.expires_in_seconds + EXPIRY_BUFFER_SECONDS)
     status = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
     require_status("expiry_denial", status, {401, 403})
@@ -182,16 +197,34 @@ def run_smoke(
         session_b = sign_in(
             client, config.firebase_web_api_key, config.parent_b_email, config.parent_b_password
         )
-        for label, session in (("parent_a_me", session_a), ("parent_b_me", session_b)):
-            status = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
-            require_status(label, status, {200})
+        identities = []
+        for label, session, email in (
+            ("parent_a_me", session_a, config.parent_a_email),
+            ("parent_b_me", session_b, config.parent_b_email),
+        ):
+            response = api_response(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
+            require_status(label, response.status_code, {200})
+            identity = _json(response)
+            if (
+                not isinstance(identity.get("id"), str)
+                or not identity["id"]
+                or identity.get("email", "").casefold() != email.casefold()
+                or identity.get("role") != "parent"
+                or identity.get("is_active") is not True
+            ):
+                raise SmokeError(f"{label}: expected active synthetic parent identity")
+            identities.append(identity["id"])
             results[label] = "PASS"
+        if identities[0] == identities[1]:
+            raise SmokeError("Synthetic guardians must have distinct user IDs")
 
         student_path = f"/api/v1/students/{config.parent_a_student_id}"
-        student_status = api_request(
+        student_response = api_response(
             client, config.api_origin, "GET", student_path, session_a.id_token
         )
-        require_status("parent_a_student", student_status, {200})
+        require_status("parent_a_student", student_response.status_code, {200})
+        if _json(student_response).get("id") != config.parent_a_student_id:
+            raise SmokeError("parent_a_student: expected known synthetic learner ID")
         results["parent_a_student"] = "PASS"
 
         cross_get = api_request(client, config.api_origin, "GET", student_path, session_b.id_token)
@@ -233,7 +266,7 @@ def run_smoke(
                 status = api_request(
                     client, config.api_origin, "GET", "/api/v1/me", mismatch_session.id_token
                 )
-                require_status("project_mismatch_denial", status, {401, 403})
+                require_status("project_mismatch_denial", status, {401})
                 results["project_mismatch"] = "PASS"
         return results
     finally:
