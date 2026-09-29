@@ -2,7 +2,7 @@
 
 These instructions apply to this backend repository. The owner-provided SkillSprout v2.3 specification is the product authority. Record a concrete conflict with repository documents or a task request and ask the owner to resolve it before implementing the disputed product decision.
 
-Follow the shared [agent operating model](https://github.com/suraka/skillsprout/blob/main/docs/development/agent-operating-model.md) and [release gates](https://github.com/suraka/skillsprout/blob/main/docs/development/release-gates.md). These canonical `main` links depend on the frontend documentation PR being merged; until then, the files are on `suraka/skillsprout` branch `codex/agent-control-frontend`. Do not treat their presence on that branch as a merged policy or an approved release.
+Follow the shared [agent operating model](https://github.com/suraka/skillsprout/blob/main/docs/development/agent-operating-model.md) and [release gates](https://github.com/suraka/skillsprout/blob/main/docs/development/release-gates.md). These canonical `main` links remain unavailable until the documents reach frontend `main` through PR #1 and its stacked documentation PR #2, or equivalent integration. PR #2 targets PR #1's branch, so merging PR #2 into that branch alone does not make the links available on `main`. Until then, the files are on `suraka/skillsprout` branch `codex/agent-control-frontend`; keep this backend PR draft. Do not treat their presence on that branch as a merged policy or an approved release.
 
 ## Backend boundaries
 
