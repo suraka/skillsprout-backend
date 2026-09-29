@@ -11,7 +11,6 @@ from urllib.parse import urlsplit
 
 import httpx
 
-
 EXPIRY_BUFFER_SECONDS = 10
 
 
