@@ -1,9 +1,13 @@
 """Fail-closed validation for an explicitly identified staging backend."""
 
-from dataclasses import dataclass
-from urllib.parse import unquote, urlsplit
+from __future__ import annotations
 
-from app.config import Settings
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+from urllib.parse import parse_qsl, unquote, urlsplit
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 
 class StagingValidationError(ValueError):
@@ -40,9 +44,27 @@ def validate_staging_target(
         parsed = urlsplit(settings.database_url)
         database_host = parsed.hostname
         database_name = unquote(parsed.path.lstrip("/"))
+        # Driver query arguments can override the authority before connecting.
+        # Permit only the supported TLS mode; reject all routing and unknown keys.
+        query_pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
+        safe_query = len(query_pairs) <= 1 and all(
+            key == "sslmode" and value in {"require", "verify-ca", "verify-full"}
+            for key, value in query_pairs
+        )
+        safe_url = (
+            parsed.scheme == "postgresql+asyncpg"
+            and bool(database_host)
+            and bool(database_name)
+            and not parsed.fragment
+            and safe_query
+        )
     except (TypeError, ValueError):
         database_host = None
         database_name = ""
+        safe_url = False
+
+    if not safe_url:
+        raise StagingValidationError("DATABASE_URL must use a supported staging PostgreSQL URL")
 
     configured_values = {
         "database_host": database_host,
