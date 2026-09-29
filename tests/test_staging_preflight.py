@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
-
 import pytest
 
 from app.staging_target import StagingValidationError
