@@ -8,7 +8,10 @@ import sys
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.config import Settings
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.config import Settings
 from app.staging_target import (
     ExpectedStagingTarget,
     StagingValidationError,
@@ -60,6 +63,9 @@ async def inspect_database(settings: Settings, target: dict[str, str]) -> dict[s
 
 async def run(env: dict[str, str]) -> dict[str, object]:
     expected = expected_target_from_env(env)
+    # Import app.config only after entering main's redacted error boundary.
+    from app.config import Settings
+
     settings = Settings()
     target = validate_staging_target(settings, expected)
     return await inspect_database(settings, target)
