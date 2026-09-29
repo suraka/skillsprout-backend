@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qsl, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -44,19 +44,14 @@ def validate_staging_target(
         parsed = urlsplit(settings.database_url)
         database_host = parsed.hostname
         database_name = unquote(parsed.path.lstrip("/"))
-        # Driver query arguments can override the authority before connecting.
-        # Permit only the supported TLS mode; reject all routing and unknown keys.
-        query_pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True)
-        safe_query = len(query_pairs) <= 1 and all(
-            key == "sslmode" and value in {"require", "verify-ca", "verify-full"}
-            for key, value in query_pairs
-        )
+        # asyncpg receives query options directly, including unsupported TLS
+        # flags and connection-routing overrides. Require an unambiguous URL.
         safe_url = (
             parsed.scheme == "postgresql+asyncpg"
             and bool(database_host)
             and bool(database_name)
+            and not parsed.query
             and not parsed.fragment
-            and safe_query
         )
     except (TypeError, ValueError):
         database_host = None
