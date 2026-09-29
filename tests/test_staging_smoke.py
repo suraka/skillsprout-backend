@@ -201,6 +201,20 @@ def test_wrong_project_requires_authentication_denial():
     assert state["observed_mismatch_status"] == 403
 
 
+def test_wrong_project_401_passes():
+    env = smoke_env()
+    env.update(
+        STAGING_MISMATCH_FIREBASE_WEB_API_KEY="different-public-key",
+        STAGING_MISMATCH_PARENT_EMAIL="synthetic-other@example.test",
+        STAGING_MISMATCH_PARENT_PASSWORD="synthetic-other-password",
+    )
+    state = {"mismatch_status": 401}
+    with httpx.Client(transport=httpx.MockTransport(synthetic_handler(state))) as client:
+        results = run_smoke(env, client, selected_checks={"project_mismatch"})
+    assert state["observed_mismatch_status"] == 401
+    assert results["project_mismatch"] == "PASS"
+
+
 def test_requires_expected_api_origin_before_requests():
     calls = 0
     env = smoke_env()
