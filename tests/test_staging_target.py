@@ -16,7 +16,7 @@ def target() -> ExpectedStagingTarget:
 def settings(**overrides: str) -> Settings:
     values = {
         "app_env": "staging",
-        "database_url": "postgresql+asyncpg://dbuser:secret-password@staging-db.internal:5432/skillsprout_staging?sslmode=require",
+        "database_url": "postgresql+asyncpg://dbuser:secret-password@staging-db.internal:5432/skillsprout_staging",
         "frontend_url": "https://staging.skillsprout.example",
         "firebase_project_id": "skillsprout-staging",
     }
@@ -83,6 +83,8 @@ def test_safe_summary_excludes_database_password():
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?port=5433",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?dsn=production",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?password=query-secret",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?sslmode=require",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?sslmode=verify-full",
         "mysql+asyncmy://dbuser:secret-password@staging-db.internal/skillsprout_staging",
     ],
 )
