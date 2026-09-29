@@ -1,5 +1,7 @@
 """Read-only staging database identity and Alembic revision preflight."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import os
