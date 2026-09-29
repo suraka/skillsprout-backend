@@ -75,11 +75,15 @@ def test_main_prints_safe_validation_error(monkeypatch, capsys):
 
 
 @pytest.mark.asyncio
-async def test_routing_override_fails_before_engine_creation(monkeypatch):
+@pytest.mark.parametrize(
+    "query",
+    ["host=production.internal", "sslmode=require", "sslmode=verify-full"],
+)
+async def test_unsupported_query_fails_before_engine_creation(monkeypatch, query):
     fake_config = ModuleType("app.config")
     fake_config.Settings = lambda: SimpleNamespace(
         app_env="staging",
-        database_url="postgresql+asyncpg://user:secret@staging-db.internal/skillsprout_staging?host=production.internal",
+        database_url=f"postgresql+asyncpg://user:secret@staging-db.internal/skillsprout_staging?{query}",
         frontend_url="https://staging.skillsprout.example",
         firebase_project_id="skillsprout-staging",
     )
