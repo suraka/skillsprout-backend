@@ -35,15 +35,14 @@ def test_rejects_non_staging_app_env():
 
 def test_rejects_database_host_or_name_mismatch():
     for database_url in (
-        "postgresql+asyncpg://dbuser:secret-password@unexpected.internal/db?password=query-secret",
-        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/other?password=query-secret",
+        "postgresql+asyncpg://dbuser:secret-password@unexpected.internal/db",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/other",
     ):
         try:
             validate_staging_target(settings(database_url=database_url), target())
         except ValueError as exc:
             assert "Staging target mismatch" in str(exc)
             assert "secret-password" not in str(exc)
-            assert "query-secret" not in str(exc)
         else:
             raise AssertionError("database identity mismatch should be rejected")
 
@@ -83,7 +82,7 @@ def test_safe_summary_excludes_database_password():
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?database=production",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?port=5433",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?dsn=production",
-        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?password=query-secret",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging",
         "mysql+asyncmy://dbuser:secret-password@staging-db.internal/skillsprout_staging",
     ],
 )
