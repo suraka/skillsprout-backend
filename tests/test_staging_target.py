@@ -82,7 +82,7 @@ def test_safe_summary_excludes_database_password():
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?database=production",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?port=5433",
         "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?dsn=production",
-        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging",
+        "postgresql+asyncpg://dbuser:secret-password@staging-db.internal/skillsprout_staging?password=query-secret",
         "mysql+asyncmy://dbuser:secret-password@staging-db.internal/skillsprout_staging",
     ],
 )
