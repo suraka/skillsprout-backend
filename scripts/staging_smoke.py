@@ -36,20 +36,10 @@ class FirebaseSession:
     expires_in_seconds: int
 
 
-def load_config(env: dict[str, str]) -> SmokeConfig:
-    names = (
-        "STAGING_API_ORIGIN",
-        "STAGING_FIREBASE_WEB_API_KEY",
-        "STAGING_PARENT_A_EMAIL",
-        "STAGING_PARENT_A_PASSWORD",
-        "STAGING_PARENT_B_EMAIL",
-        "STAGING_PARENT_B_PASSWORD",
-        "STAGING_PARENT_A_STUDENT_ID",
-    )
-    missing = [name for name in names if not env.get(name, "").strip()]
-    if missing:
-        raise SmokeError("Missing required staging smoke settings: " + ", ".join(missing))
-    origin = env["STAGING_API_ORIGIN"].strip().rstrip("/")
+def _validated_https_origin(env: dict[str, str], variable: str) -> str:
+    origin = env.get(variable, "").strip()
+    if not origin:
+        raise SmokeError(f"{variable} is required")
     parsed = urlsplit(origin)
     if (
         parsed.scheme != "https"
@@ -60,7 +50,28 @@ def load_config(env: dict[str, str]) -> SmokeConfig:
         or parsed.query
         or parsed.fragment
     ):
-        raise SmokeError("STAGING_API_ORIGIN must be an HTTPS origin without credentials or path")
+        raise SmokeError(f"{variable} must be an HTTPS origin without credentials or path")
+    return origin
+
+
+def load_config(env: dict[str, str]) -> SmokeConfig:
+    names = (
+        "STAGING_API_ORIGIN",
+        "STAGING_EXPECTED_API_ORIGIN",
+        "STAGING_FIREBASE_WEB_API_KEY",
+        "STAGING_PARENT_A_EMAIL",
+        "STAGING_PARENT_A_PASSWORD",
+        "STAGING_PARENT_B_EMAIL",
+        "STAGING_PARENT_B_PASSWORD",
+        "STAGING_PARENT_A_STUDENT_ID",
+    )
+    missing = [name for name in names if not env.get(name, "").strip()]
+    if missing:
+        raise SmokeError("Missing required staging smoke settings: " + ", ".join(missing))
+    origin = _validated_https_origin(env, "STAGING_API_ORIGIN")
+    expected_origin = _validated_https_origin(env, "STAGING_EXPECTED_API_ORIGIN")
+    if origin != expected_origin:
+        raise SmokeError("STAGING_API_ORIGIN must match STAGING_EXPECTED_API_ORIGIN")
     return SmokeConfig(
         api_origin=origin,
         firebase_web_api_key=env["STAGING_FIREBASE_WEB_API_KEY"],
@@ -70,7 +81,6 @@ def load_config(env: dict[str, str]) -> SmokeConfig:
         parent_b_password=env["STAGING_PARENT_B_PASSWORD"],
         parent_a_student_id=env["STAGING_PARENT_A_STUDENT_ID"],
     )
-
 
 def _json(response: httpx.Response) -> dict[str, Any]:
     try:

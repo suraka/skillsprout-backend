@@ -6,6 +6,10 @@ from urllib.parse import unquote, urlsplit
 from app.config import Settings
 
 
+class StagingValidationError(ValueError):
+    """A validation failure whose message contains only safe identifiers."""
+
+
 @dataclass(frozen=True)
 class ExpectedStagingTarget:
     database_host: str
@@ -26,9 +30,11 @@ def validate_staging_target(
     }
     missing = [name for name, value in expected_values.items() if not value.strip()]
     if missing:
-        raise ValueError("Expected staging target values are required: " + ", ".join(missing))
+        raise StagingValidationError(
+            "Expected staging target values are required: " + ", ".join(missing)
+        )
     if settings.app_env != "staging":
-        raise ValueError("APP_ENV must be staging")
+        raise StagingValidationError("APP_ENV must be staging")
 
     try:
         parsed = urlsplit(settings.database_url)
@@ -50,7 +56,7 @@ def validate_staging_target(
         if configured_values[name] != expected_value
     ]
     if mismatches:
-        raise ValueError("Staging target mismatch for: " + ", ".join(mismatches))
+        raise StagingValidationError("Staging target mismatch for: " + ", ".join(mismatches))
 
     return {
         "app_env": settings.app_env,
