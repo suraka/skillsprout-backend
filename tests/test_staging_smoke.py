@@ -22,6 +22,10 @@ def smoke_env() -> dict[str, str]:
 def synthetic_handler(state):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.host == "identitytoolkit.googleapis.com":
+            if request.url.params.get("key") == "different-public-key":
+                return httpx.Response(
+                    200, json={"idToken": "memory-only-mismatch-token", "expiresIn": "60"}
+                )
             state["tokens"] = state.get("tokens", 0) + 1
             return httpx.Response(
                 200,
@@ -31,8 +35,10 @@ def synthetic_handler(state):
             return httpx.Response(200, json={})
         token = request.headers.get("Authorization", "").removeprefix("Bearer ")
         if request.url.path.endswith("/me"):
-            if token == "memory-only-token-4":
-                return httpx.Response(state.get("mismatch_status", 401))
+            if token == "memory-only-mismatch-token":
+                status = state.get("mismatch_status", 401)
+                state["observed_mismatch_status"] = status
+                return httpx.Response(status)
             if token == "memory-only-token-3":
                 state["fresh_calls"] = state.get("fresh_calls", 0) + 1
                 if state.get("fresh_token_denied") or state.get("denied"):
@@ -186,11 +192,13 @@ def test_wrong_project_requires_authentication_denial():
         STAGING_MISMATCH_PARENT_EMAIL="synthetic-other@example.test",
         STAGING_MISMATCH_PARENT_PASSWORD="synthetic-other-password",
     )
-    with httpx.Client(
-        transport=httpx.MockTransport(synthetic_handler({"mismatch_status": 403}))
-    ) as client:
-        with pytest.raises(SmokeError, match="project_mismatch_denial: expected HTTP 401"):
+    state = {"mismatch_status": 403}
+    with httpx.Client(transport=httpx.MockTransport(synthetic_handler(state))) as client:
+        with pytest.raises(
+            SmokeError, match="project_mismatch_denial: expected HTTP 401, received HTTP 403"
+        ):
             run_smoke(env, client, selected_checks={"project_mismatch"})
+    assert state["observed_mismatch_status"] == 403
 
 
 def test_requires_expected_api_origin_before_requests():
