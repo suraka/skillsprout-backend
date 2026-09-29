@@ -43,7 +43,7 @@ def test_authentication_failure_does_not_print_password_or_token(capsys):
 def test_failed_cross_family_status_fails_command():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.host == "identitytoolkit.googleapis.com":
-            return httpx.Response(200, json={"idToken": "memory-only-token"})
+            return httpx.Response(200, json={"idToken": "memory-only-token", "expiresIn": "3600"})
         path = request.url.path
         if path.endswith("/ready") or path.endswith("/me"):
             return httpx.Response(200, json={})
@@ -56,3 +56,71 @@ def test_failed_cross_family_status_fails_command():
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(SmokeError, match="parent_b_cross_family_get: expected HTTP 403, 404"):
             run_smoke(smoke_env(), client)
+
+
+def test_revocation_uses_an_in_memory_token_and_reports_no_token(capsys):
+    token_calls = 0
+    prompts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal token_calls
+        if request.url.host == "identitytoolkit.googleapis.com":
+            token_calls += 1
+            return httpx.Response(
+                200, json={"idToken": f"memory-only-token-{token_calls}", "expiresIn": "60"}
+            )
+        if request.url.path.endswith("/ready"):
+            return httpx.Response(200, json={})
+        if request.url.path.endswith("/me"):
+            if request.headers.get("Authorization") == "Bearer memory-only-token-3":
+                return httpx.Response(401, json={"detail": "denied"})
+            return httpx.Response(200, json={})
+        if request.method == "GET":
+            return httpx.Response(200, json={})
+        return httpx.Response(403, json={})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        results = run_smoke(
+            smoke_env(),
+            client,
+            selected_checks={"revocation"},
+            input_fn=lambda prompt: prompts.append(prompt) or "",
+        )
+
+    print(json.dumps({"status": "ok", "checks": results}))
+    output = capsys.readouterr().out + repr(results) + repr(prompts)
+    assert results["revocation"] == "PASS"
+    assert token_calls == 3
+    assert prompts == ["Revoke sessions for synthetic guardian A, then press Enter to verify denial: "]
+    assert "memory-only-token-3" not in output
+
+
+def test_expiry_waits_through_session_expiry_before_verifying_denial():
+    token_calls = 0
+    waited: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal token_calls
+        if request.url.host == "identitytoolkit.googleapis.com":
+            token_calls += 1
+            return httpx.Response(
+                200, json={"idToken": f"memory-only-token-{token_calls}", "expiresIn": "60"}
+            )
+        if request.url.path.endswith("/ready"):
+            return httpx.Response(200, json={})
+        if request.url.path.endswith("/me"):
+            if request.headers.get("Authorization") == "Bearer memory-only-token-3":
+                return httpx.Response(401, json={"detail": "expired"})
+            return httpx.Response(200, json={})
+        if request.method == "GET":
+            return httpx.Response(200, json={})
+        return httpx.Response(403, json={})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        results = run_smoke(
+            smoke_env(), client, selected_checks={"expiry"}, sleeper=waited.append
+        )
+
+    assert results["expiry"] == "PASS"
+    assert token_calls == 3
+    assert waited == [70]

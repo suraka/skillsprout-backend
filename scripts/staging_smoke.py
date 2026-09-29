@@ -4,11 +4,15 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 import httpx
+
+
+EXPIRY_BUFFER_SECONDS = 10
 
 
 class SmokeError(RuntimeError):
@@ -24,6 +28,12 @@ class SmokeConfig:
     parent_b_email: str
     parent_b_password: str
     parent_a_student_id: str
+
+
+@dataclass(frozen=True)
+class FirebaseSession:
+    id_token: str
+    expires_in_seconds: int
 
 
 def load_config(env: dict[str, str]) -> SmokeConfig:
@@ -70,7 +80,7 @@ def _json(response: httpx.Response) -> dict[str, Any]:
     return result if isinstance(result, dict) else {}
 
 
-def sign_in(client: httpx.Client, api_key: str, email: str, password: str) -> str:
+def sign_in(client: httpx.Client, api_key: str, email: str, password: str) -> FirebaseSession:
     url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
     try:
         response = client.post(
@@ -82,10 +92,15 @@ def sign_in(client: httpx.Client, api_key: str, email: str, password: str) -> st
         raise SmokeError("Firebase sign-in request failed") from None
     if response.status_code != 200:
         raise SmokeError(f"Firebase sign-in failed (HTTP {response.status_code})")
-    token = _json(response).get("idToken")
-    if not isinstance(token, str) or not token:
-        raise SmokeError("Firebase sign-in response did not contain an ID token")
-    return token
+    result = _json(response)
+    token = result.get("idToken")
+    try:
+        expires_in_seconds = int(result.get("expiresIn", ""))
+    except (TypeError, ValueError):
+        expires_in_seconds = 0
+    if not isinstance(token, str) or not token or expires_in_seconds <= 0:
+        raise SmokeError("Firebase sign-in response did not contain a usable session")
+    return FirebaseSession(id_token=token, expires_in_seconds=expires_in_seconds)
 
 
 def api_request(
@@ -110,10 +125,38 @@ def require_status(label: str, status: int, expected: set[int]) -> None:
         raise SmokeError(f"{label}: expected HTTP {accepted}, received HTTP {status}")
 
 
+def verify_revocation(
+    config: SmokeConfig,
+    client: httpx.Client,
+    input_fn: Callable[[str], str],
+) -> None:
+    session = sign_in(
+        client, config.firebase_web_api_key, config.parent_a_email, config.parent_a_password
+    )
+    input_fn("Revoke sessions for synthetic guardian A, then press Enter to verify denial: ")
+    status = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
+    require_status("revocation_denial", status, {401, 403})
+
+
+def verify_expiry(
+    config: SmokeConfig,
+    client: httpx.Client,
+    sleeper: Callable[[float], None],
+) -> None:
+    session = sign_in(
+        client, config.firebase_web_api_key, config.parent_a_email, config.parent_a_password
+    )
+    sleeper(session.expires_in_seconds + EXPIRY_BUFFER_SECONDS)
+    status = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
+    require_status("expiry_denial", status, {401, 403})
+
+
 def run_smoke(
     env: dict[str, str],
     client: httpx.Client | None = None,
     selected_checks: set[str] | None = None,
+    input_fn: Callable[[str], str] = input,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> dict[str, str]:
     config = load_config(env)
     own_client = client is None
@@ -124,23 +167,25 @@ def run_smoke(
         require_status("Readiness", ready_status, {200})
         results["ready"] = "PASS"
 
-        token_a = sign_in(
+        session_a = sign_in(
             client, config.firebase_web_api_key, config.parent_a_email, config.parent_a_password
         )
-        token_b = sign_in(
+        session_b = sign_in(
             client, config.firebase_web_api_key, config.parent_b_email, config.parent_b_password
         )
-        for label, token in (("parent_a_me", token_a), ("parent_b_me", token_b)):
-            status = api_request(client, config.api_origin, "GET", "/api/v1/me", token)
+        for label, session in (("parent_a_me", session_a), ("parent_b_me", session_b)):
+            status = api_request(client, config.api_origin, "GET", "/api/v1/me", session.id_token)
             require_status(label, status, {200})
             results[label] = "PASS"
 
         student_path = f"/api/v1/students/{config.parent_a_student_id}"
-        student_status = api_request(client, config.api_origin, "GET", student_path, token_a)
+        student_status = api_request(
+            client, config.api_origin, "GET", student_path, session_a.id_token
+        )
         require_status("parent_a_student", student_status, {200})
         results["parent_a_student"] = "PASS"
 
-        cross_get = api_request(client, config.api_origin, "GET", student_path, token_b)
+        cross_get = api_request(client, config.api_origin, "GET", student_path, session_b.id_token)
         require_status("parent_b_cross_family_get", cross_get, {403, 404})
         results["parent_b_cross_family_get"] = "PASS"
         cross_patch = api_request(
@@ -148,27 +193,19 @@ def run_smoke(
             config.api_origin,
             "PATCH",
             student_path,
-            token_b,
+            session_b.id_token,
             {"preferred_name": "Unauthorized staging probe"},
         )
         require_status("parent_b_cross_family_patch", cross_patch, {403, 404})
         results["parent_b_cross_family_patch"] = "PASS"
 
         requested = selected_checks or set()
-        for mode, env_name in (
-            ("revocation", "STAGING_REVOKED_FIREBASE_ID_TOKEN"),
-            ("expiry", "STAGING_EXPIRED_FIREBASE_ID_TOKEN"),
-        ):
-            if mode not in requested:
-                continue
-            test_token = env.get(env_name, "").strip()
-            if not test_token:
-                results[mode] = "NOT TESTED"
-                continue
-            status = api_request(client, config.api_origin, "GET", "/api/v1/me", test_token)
-            require_status(f"{mode}_denial", status, {401, 403})
-            results[mode] = "PASS"
-
+        if "revocation" in requested:
+            verify_revocation(config, client, input_fn)
+            results["revocation"] = "PASS"
+        if "expiry" in requested:
+            verify_expiry(config, client, sleeper)
+            results["expiry"] = "PASS"
         if "project_mismatch" in requested:
             mismatch_names = (
                 "STAGING_MISMATCH_FIREBASE_WEB_API_KEY",
@@ -178,13 +215,15 @@ def run_smoke(
             if any(not env.get(name, "").strip() for name in mismatch_names):
                 results["project_mismatch"] = "NOT TESTED"
             else:
-                mismatch_token = sign_in(
+                mismatch_session = sign_in(
                     client,
                     env[mismatch_names[0]],
                     env[mismatch_names[1]],
                     env[mismatch_names[2]],
                 )
-                status = api_request(client, config.api_origin, "GET", "/api/v1/me", mismatch_token)
+                status = api_request(
+                    client, config.api_origin, "GET", "/api/v1/me", mismatch_session.id_token
+                )
                 require_status("project_mismatch_denial", status, {401, 403})
                 results["project_mismatch"] = "PASS"
         return results
